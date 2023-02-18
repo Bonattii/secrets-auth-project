@@ -2,7 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const md5 = require('md5');
+const bcrypt = require('bcrypt');
+
+const saltRounds = 10;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,14 +43,17 @@ app
     res.render('register');
   })
   .post((req, res) => {
-    // Create a new user
-    const newUser = new User({
-      email: req.body.username,
-      password: md5(req.body.password) // Hash the password
-    });
+    // Create a hash with 10 saltRounds and store as the password
+    bcrypt.hash(req.body.password, saltRounds, (err, hash) => {
+      // Create a new user
+      const newUser = new User({
+        email: req.body.username,
+        password: hash
+      });
 
-    // Save the new user on the users collection
-    newUser.save(err => (err ? console.log(err) : res.render('secrets')));
+      // Save the new user on the users collection
+      newUser.save(err => (err ? console.log(err) : res.render('secrets')));
+    });
   });
 
 // localhost:3000/login
@@ -59,8 +64,7 @@ app
   })
   .post((req, res) => {
     const username = req.body.username;
-    // Hash the password to compare with the one store in the collection
-    const password = md5(req.body.password);
+    const password = req.body.password;
 
     // Search for a user with the credentials
     User.findOne({ email: username }, (err, foundUser) => {
@@ -69,9 +73,10 @@ app
       } else {
         // If the user exists on the collections check if the passwords match
         if (foundUser) {
-          if (foundUser.password === password) {
-            res.render('secrets');
-          }
+          // Compare the password with the one in the collection
+          bcrypt.compare(password, foundUser.password, (err, result) => {
+            if (result === true) res.render('secrets');
+          });
         }
       }
     });

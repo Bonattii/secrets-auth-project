@@ -1,7 +1,7 @@
 {
   "name": "secrets-",
   "version": "1.0.0",
-  "description": "",
+  "description": "Secrets application",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -10,12 +10,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^5.1.0",
     "body-parser": "^1.20.1",
     "dotenv": "^16.0.3",
     "ejs": "^3.1.8",
     "express": "^4.18.2",
-    "md5": "^2.3.0",
-    "mongoose": "^6.9.2",
-    "mongoose-encryption": "^2.1.2"
+    "mongoose": "^6.9.2"
   }
 }
