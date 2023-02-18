@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const encrypt = require('mongoose-encryption');
+const md5 = require('md5');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,12 +26,6 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Create a secret and use the encrypt plugin in the userSchema
-userSchema.plugin(encrypt, {
-  secret: process.env.SECRET,
-  encryptedFields: ['password']
-});
-
 // Mongoose will automatically convert User into users
 const User = new mongoose.model('User', userSchema);
 
@@ -50,7 +44,7 @@ app
     // Create a new user
     const newUser = new User({
       email: req.body.username,
-      password: req.body.password
+      password: md5(req.body.password) // Hash the password
     });
 
     // Save the new user on the users collection
@@ -65,7 +59,8 @@ app
   })
   .post((req, res) => {
     const username = req.body.username;
-    const password = req.body.password;
+    // Hash the password to compare with the one store in the collection
+    const password = md5(req.body.password);
 
     // Search for a user with the credentials
     User.findOne({ email: username }, (err, foundUser) => {
