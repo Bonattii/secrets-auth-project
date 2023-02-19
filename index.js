@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const findOrCreate = require('mongoose-findorcreate');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,18 +33,14 @@ app.use(passport.session());
 mongoose.connect(process.env.MONGO_URI);
 
 const userSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    require: [true, 'Users need to have an email.']
-  },
-  password: {
-    type: String,
-    require: [true, 'Users need to have a password.']
-  }
+  email: String,
+  password: String,
+  googleId: String
 });
 
 // Set the passport local mongoose to be a plugin of hashing on the schema
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 // Mongoose will automatically convert User into users
 const User = new mongoose.model('User', userSchema);
@@ -50,13 +48,48 @@ const User = new mongoose.model('User', userSchema);
 // Congigure the serialize and deserialize
 passport.use(User.createStrategy());
 
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser((id, done) => {
+  User.findById(id, (err, user) => done(err, user));
+});
+
+// Config passport to user google authentication
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      callbackURL: 'http://localhost:3000/auth/google/secrets',
+      userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo'
+    },
+    (accessToken, refreshToken, profile, cb) => {
+      // Find a user on the DB or create if didn't found
+      User.findOrCreate({ googleId: profile.id }, function (err, user) {
+        return cb(err, user);
+      });
+    }
+  )
+);
 
 // localhost:3000/
-app.route('/').get((req, res) => {
+app.get('/', (req, res) => {
   res.render('home');
 });
+
+// localhost:3000/auth/google
+app.get(
+  '/auth/google',
+  // Authenticate the user using google
+  passport.authenticate('google', { scope: ['profile'] })
+);
+
+// localhost:3000/auth/google/secrets
+app.get(
+  '/auth/google/secrets',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  // Successful authentication, redirect to secrets page
+  (req, res) => res.redirect('/secrets')
+);
 
 // localhost:3000/register
 app
@@ -106,7 +139,7 @@ app
   });
 
 // localhost:3000/secrets
-app.route('/secrets').get((req, res) => {
+app.get('/secrets', (req, res) => {
   // If the user is logged will render the secrets page
   req.isAuthenticated() ? res.render('secrets') : res.redirect('/login');
 });
