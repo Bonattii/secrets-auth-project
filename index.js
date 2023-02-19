@@ -35,7 +35,8 @@ mongoose.connect(process.env.MONGO_URI);
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 // Set the passport local mongoose to be a plugin of hashing on the schema
@@ -140,15 +141,45 @@ app
 
 // localhost:3000/secrets
 app.get('/secrets', (req, res) => {
-  // If the user is logged will render the secrets page
-  req.isAuthenticated() ? res.render('secrets') : res.redirect('/login');
+  // Find users where secret is not null
+  User.find({ secret: { $ne: null } }, (err, foundUsers) => {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUsers) {
+        res.render('secrets', { usersWithSecrets: foundUsers });
+      }
+    }
+  });
 });
+
+// localhost:3000/submit
+app
+  .route('/submit')
+  .get((req, res) => {
+    // If the user is logged will render the submit page
+    req.isAuthenticated() ? res.render('submit') : res.redirect('/login');
+  })
+  .post((req, res) => {
+    const submittedSecret = req.body.secret;
+
+    // If find a user will save the secret to the collection
+    User.findById(req.user.id, (err, foundUser) => {
+      if (err) {
+        console.log(err);
+      } else {
+        if (foundUser) {
+          foundUser.secret = submittedSecret;
+          foundUser.save(() => res.redirect('/secrets'));
+        }
+      }
+    });
+  });
 
 // localhost:3000/logout
 app.get('/logout', (req, res) => {
   req.logout(err => {
-    if (err) console.log(err);
-    res.redirect('/');
+    err ? console.log(err) : res.redirect('/');
   });
 });
 
